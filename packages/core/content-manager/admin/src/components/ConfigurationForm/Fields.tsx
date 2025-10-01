@@ -129,10 +129,30 @@ const Fields = ({ attributes, fieldSizes, components, metadatas = {} }: FieldsPr
     metadatasRef.current = metadatas;
   }, [metadatas]);
 
-  const makeKey = React.useCallback(
-    () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`,
-    []
-  );
+  // secure key generator using Web Crypto API with a safe fallback
+  const generateSafeKey = (): string => {
+    try {
+      const c = (globalThis as any).crypto;
+      if (c && typeof c.randomUUID === 'function') {
+        return c.randomUUID();
+      }
+
+      if (c && typeof c.getRandomValues === 'function') {
+        const arr = new Uint8Array(8); // 8 bytes -> compact string
+        c.getRandomValues(arr);
+        return Array.from(arr)
+          .map((b) => b.toString(36).padStart(2, '0'))
+          .join('');
+      }
+    } catch (e) {
+      // ignore and fallback to last-resort option below
+    }
+
+    // Last-resort fallback (non-crypto). Very rare in modern runtimes.
+    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+  };
+
+  const makeKey = React.useCallback(() => generateSafeKey(), []);
 
   const buildRowForAttribute = React.useCallback(
     (name: string) => {
